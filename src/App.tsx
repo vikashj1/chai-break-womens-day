@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  type Auth,
   RecaptchaVerifier,
   signInAnonymously,
   signInWithPhoneNumber,
@@ -64,12 +65,17 @@ export default function App() {
 
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null)
 
-  async function ensureAnonymousAuth() {
+  function requireAuth(): Auth {
     if (!firebaseReady || !auth) {
       throw new Error('FIREBASE_NOT_CONFIGURED')
     }
-    if (auth.currentUser) return
-    await signInAnonymously(auth)
+    return auth
+  }
+
+  async function ensureAnonymousAuth() {
+    const a = requireAuth()
+    if (a.currentUser) return
+    await signInAnonymously(a)
   }
 
   useEffect(() => {
@@ -105,11 +111,9 @@ export default function App() {
   }, [phoneE164])
 
   async function ensureRecaptcha() {
-    if (!firebaseReady || !auth) {
-      throw new Error('FIREBASE_NOT_CONFIGURED')
-    }
+    const a = requireAuth()
     if (recaptchaRef.current) return recaptchaRef.current
-    const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+    const verifier = new RecaptchaVerifier(a, 'recaptcha-container', {
       size: 'invisible',
     })
     recaptchaRef.current = verifier
@@ -144,7 +148,8 @@ export default function App() {
       await ensureAnonymousAuth()
       await incrementOtpSendOrThrow(phoneE164, name.trim())
       const verifier = await ensureRecaptcha()
-      const result = await signInWithPhoneNumber(auth, phoneE164, verifier)
+      const a = requireAuth()
+      const result = await signInWithPhoneNumber(a, phoneE164, verifier)
       setConfirmation(result)
       setStep('otp')
     } catch (e) {
